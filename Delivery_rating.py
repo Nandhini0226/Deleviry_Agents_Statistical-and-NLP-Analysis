@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 #This library os used for probabilistic distributions and statistical operations.
 import scipy.stats as stats
-from scipy.stats import spearmanr,chi2_contingency
+from scipy.stats import spearmanr,chi2,chi2_contingency
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
 
@@ -209,89 +209,145 @@ plt.legend(title="Order Accuracy", loc='upper right')
 plt.tight_layout()
 plt.show()
 
-"""......................................Inferential Data Analysis..................................................."""
+# 9.Group by Location and Agent Name to get the frequency
+# Group by Location and Agent Name to get the frequency
+frequency_data = df.groupby(['Location', 'Agent_Name']).size().reset_index(name='Frequency')
+sorted_frequency_data = frequency_data.sort_values(by=['Location', 'Frequency'], ascending=[True, False])
+pivot_data = sorted_frequency_data.pivot_table(index='Location', columns='Agent_Name', values='Frequency', fill_value=0)
+
+# Plotting the data
+ax = pivot_data.plot(kind='bar', stacked=False, figsize=(12, 8))
+
+# Customizing plot appearance
+plt.title('Agent Frequency by Location', fontsize=16)
+plt.xlabel('Location', fontsize=12)
+plt.ylabel('Frequency', fontsize=12)
+plt.xticks(rotation=45, ha='right')
+plt.grid(True)
+plt.ylim(0, 150)  # Adjust the y-axis limit if needed
+plt.legend(title='Agent Name', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
+"""..................................Inferential Data Analysis..................................................."""
 
 #1.Chi-Square Test for Independence to test whether there is an association between Order Type and Product Availability
-
-# Create a contingency table for Order Type and Product Availability and Perform the Chi-Square Test
+# Create a contingency table for Order Type and Product Availability
 contingency_table = pd.crosstab(df['Order_Type'], df['Product_Availability'])
-chi2_stat, p_value, dof, expected = chi2_contingency(contingency_table)
 
-# Display result
-print("Null Hypothesis (H0): There is a significant relationship between Order Type and Product Availability..")
-print("Alternative Hypothesis (H1): There is no significant relationship between Order Type and Product Availability.")
+# Perform the Chi-Square Test
+chi2_stat, p_value, dof, expected = chi2_contingency(contingency_table)
+alpha = 0.05
+
+# Display the hypotheses
+print("Null Hypothesis (H0): There is no significant relationship between Order Type and Product Availability.")
+print("Alternative Hypothesis (H1): There is a significant relationship between Order Type and Product Availability.")
+
+# Display Chi-Square Statistic and p-value
 print(f"Chi-Square Statistic: {chi2_stat}")
 print(f"P-value: {p_value}")
 
-# Interpretation of the results
-if p_value < 0.05:
+# Interpretation of the results based on the p-value
+if p_value < alpha:
     print("Reject the null hypothesis: There is a significant relationship between Order Type and Product Availability.")
 else:
     print("Fail to reject the null hypothesis: There is no significant relationship between Order Type and Product Availability.")
 
-# Plot the heatmap for the contingency table
-plt.figure(figsize=(10, 8))
-sns.heatmap(contingency_table, annot=True, fmt='d', cmap='Blues', cbar=False)
-plt.title('Chi Square to check significant relationship Contingency Table Heatmap: Order Type vs Product Availability')
-plt.xlabel('Product Availability')
-plt.ylabel('Order Type')
+# Create subplots: 1 row, 2 columns
+fig, axs = plt.subplots(1, 2, figsize=(16, 6))
+
+# Subplot 1: Contingency Table Heatmap
+sns.heatmap(contingency_table, annot=True, fmt="d", cmap="Blues", cbar=True, linewidths=0.5, ax=axs[0])
+axs[0].set_title("Contingency Table Heatmap")
+axs[0].set_xlabel("Product Availability")
+axs[0].set_ylabel("Order Type")
+
+# Subplot 2: Chi-Square Distribution Plot
+x = np.linspace(0, 15, 500)
+axs[1].plot(x, chi2.pdf(x, dof), label=f'Chi-Square Distribution (df={dof})', color='blue')
+
+# Shade the area representing the p-value
+x_fill = np.linspace(chi2_stat, 15, 500)  # Area to the right of the chi2_stat
+axs[1].fill_between(x_fill, chi2.pdf(x_fill, dof), color='red', alpha=0.5, label=f'P-value area: {p_value:.3f}')
+
+# Add labels and title
+axs[1].set_title(f'Chi-Square Distribution (p = {p_value:.3f})')
+axs[1].set_xlabel('Chi-Square Statistic')
+axs[1].set_ylabel('Probability Density')
+axs[1].axvline(x=chi2_stat, color='black', linestyle='--', label=f'Chi-Square Statistic: {chi2_stat:.2f}')
+axs[1].legend()
+plt.tight_layout()
 plt.show()
+
 
 #2.Non-Parametric Kruskal-Wallis H-test to check significant difference between the Customer Service Ratings across Order Types.
 
-#Group the data by Order Type and extract the Customer Service Ratings and Perform the Kruskal-Wallis H-test
+# Group the data by Order Type and extract the Customer Service Ratings
 order_types = df['Order_Type'].unique()
 grouped_data = [df[df['Order_Type'] == order_type]['Customer_Service_Rating'] for order_type in order_types]
+
+# Perform Kruskal-Wallis H-test
 kruskal_stat, p_value = stats.kruskal(*grouped_data)
 
-#Display Kruskal-Wallis Test Results
-print("Null Hypothesis (H0): There is a significant difference between the Customer Service Ratings across Order Types.")
-print("Alternative Hypothesis (H1): There is no significant difference between the Customer Service Ratings across Order Types.")
+# Display Kruskal-Wallis Test Results
+print("Null Hypothesis (H₀): There is no significant difference in Customer Service Ratings across the different Order Types.")
+print("Alternative Hypothesis (H₁): There is a significant difference in Customer Service Ratings across the different Order Types.")
 print(f"Kruskal-Wallis H-test statistic: {kruskal_stat}")
 print(f"P-value: {p_value}")
 
 # Interpretation of the results
 if p_value < 0.05:
-    print("Reject the null hypothesis: There is a significant difference between the Customer Service Ratings across Order Types.")
+    print("Reject the null hypothesis: There is a significant difference in Customer Service Ratings across the different Order Types.")
 else:
-    print("Fail to reject the null hypothesis: There is no significant difference between the Customer Service Ratings across Order Types.")
-
+    print("Fail to reject the null hypothesis: There is no significant difference in Customer Service Ratings across the different Order Types.")
 
 # Create a boxplot to visualize the distribution of Customer Service Ratings across Order Types
 plt.figure(figsize=(10, 6))
 sns.boxplot(x='Order_Type', y='Customer_Service_Rating', data=df, palette='Set2')
-plt.title('Distribution of Customer Service Ratings by Order Type to check Kruskal-Wallis H-test ')
+plt.title('Distribution of Customer Service Ratings by Order Type')
 plt.xlabel('Order Type')
 plt.ylabel('Customer Service Rating')
 plt.show()
 
+#3.Chi-Square Test for Independence to test whether there is an association between Discount Applied and Customer Feedback Type.
+# Create a contingency table for Discount Applied vs Customer Feedback Type
+contingency_table = pd.crosstab(df['Discount_Applied'], df['Customer_Feedback_Type'])
+chi2_stat, p_value, dof, expected = chi2_contingency(contingency_table)
+alpha = 0.05
 
-#3.Correlation between Discount Applied and Customer Feedback Type.
-
-# Map the values
-df['Discount_Applied'] = df['Discount_Applied'].map({'Yes': 1, 'No': 0})
-df['Customer_Feedback_Type'] = df['Customer_Feedback_Type'].map({'Negative': -1, 'Neutral': 0, 'Positive': 1})
-
-# Calculate the correlation
-print("Null Hypothesis (H₀): The null hypothesis states that there is no correlation between Discount Applied and Customer Feedback Type.")
-print("Alternative Hypothesis (H₁): The alternative hypothesis states that there is a correlation between Discount Applied and Customer Feedback Type.")
-correlation = df['Discount_Applied'].corr(df['Customer_Feedback_Type'])
-print(f"\nThe correlation between Discount Applied and Customer Feedback Type is: {correlation:.2f}")
+# Display hypotheses
+print("Null Hypothesis (H₀): There is no significant association between Discount Applied and Customer Feedback Type.")
+print("Alternative Hypothesis (H₁): There is a significant association between Discount Applied and Customer Feedback Type.")
+print(f"Chi-Square Statistic: {chi2_stat}")
+print(f"P-value: {p_value}")
 
 # Interpretation of the results
-if correlation > 0:
-    print("\nInterpretation: There is a positive correlation between Discount Applied and Customer Feedback Type. This means that discounts might slightly increase positive feedback.")
-elif correlation < 0:
-    print("\nInterpretation: There is a negative correlation between Discount Applied and Customer Feedback Type. This means that discounts might slightly increase negative feedback, but the relationship is weak.")
+if p_value < alpha:
+    print("Reject the null hypothesis: There is a significant association between Discount Applied and Customer Feedback Type.")
 else:
-    print("\nInterpretation: There is no correlation between Discount Applied and Customer Feedback Type. Discounts have no noticeable effect on customer feedback.")
+    print("Fail to reject the null hypothesis: There is no significant association between Discount Applied and Customer Feedback Type.")
 
-# Plotting the scatter plot with regression line
-plt.figure(figsize=(8, 6))
-sns.regplot(x='Discount_Applied', y='Customer_Feedback_Type', data=df, scatter_kws={'s': 100}, line_kws={'color': 'red'})
-plt.title('Correlation Between Discount Applied and Customer Feedback Type')
-plt.xlabel('Discount Applied (0 = No, 1 = Yes)')
-plt.ylabel('Customer Feedback Type (-1 = Negative, 0 = Neutral, 1 = Positive)')
+# Create subplots
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure with 1 row and 2 columns
+
+# Contingency Table Heatmap
+sns.heatmap(contingency_table, annot=True, fmt="d", cmap="Blues", cbar=True, linewidths=0.5, ax=axes[0])
+axes[0].set_title("Contingency Table Heatmap: Discount Applied vs. Customer Feedback Type")
+axes[0].set_xlabel("Customer Feedback Type")
+axes[0].set_ylabel("Discount Applied")
+
+# Chi-Square Distribution Plot
+x = np.linspace(0, 15, 500)  # Chi-Square distribution values range
+axes[1].plot(x, chi2.pdf(x, dof), label=f'Chi-Square Distribution (df={dof})', color='blue')
+
+# Shade the area representing the p-value
+x_fill = np.linspace(chi2_stat, 15, 500)  # Area to the right of the chi2_stat
+axes[1].fill_between(x_fill, chi2.pdf(x_fill, dof), color='red', alpha=0.5, label=f'P-value area: {p_value:.3f}')
+axes[1].axvline(x=chi2_stat, color='black', linestyle='--', label=f'Chi-Square Statistic: {chi2_stat:.2f}')
+axes[1].set_title(f'Chi-Square Distribution with P-value Highlighted (p = {p_value:.3f})')
+axes[1].set_xlabel('Chi-Square Statistic')
+axes[1].set_ylabel('Probability Density')
+axes[1].legend()
+plt.tight_layout()
 plt.show()
 
 # 4.Two-way ANOVA to examine how both the Agent Name and Location affect Customer Service Rating, including the interaction effect.
@@ -299,6 +355,15 @@ plt.show()
 # Fit the OLS model using the formula
 formula = 'Customer_Service_Rating ~ C(Agent_Name) + C(Location) + C(Agent_Name):C(Location)'
 model = ols(formula, data=df).fit()
+# Hypothesis Statements
+print("Null Hypothesis (H₀) for Agent Name: There is no significant effect of Agent Name on Customer Service Rating.")
+print("Alternative Hypothesis (H₁) for Agent Name: There is a significant effect of Agent Name on Customer Service Rating.")
+
+print("\nNull Hypothesis (H₀) for Location: There is no significant effect of Location on Customer Service Rating.")
+print("Alternative Hypothesis (H₁) for Location: There is a significant effect of Location on Customer Service Rating.")
+
+print("\nNull Hypothesis (H₀) for the Interaction effect: There is no significant interaction effect between Agent Name and Location on Customer Service Rating.")
+print("Alternative Hypothesis (H₁) for the Interaction effect: There is a significant interaction effect between Agent Name and Location on Customer Service Rating.")
 
 # Perform ANOVA
 anova_table = sm.stats.anova_lm(model, typ=2)
@@ -336,14 +401,16 @@ plt.show()
 
 #5.Chi-Square Test of Independence for Price Range vs Location
 
+# Create a contingency table for Price Range vs Location
 contingency_table_location = pd.crosstab(df['Price_Range'], df['Location'])
 
 # Perform Chi-Square test
 chi2_stat_location, p_value_location, dof_location, expected_location = chi2_contingency(contingency_table_location)
+
+# Print Chi-Square Test Results
 print("\nChi-Square Test for Price Range vs Location:")
 print(f"Chi-Square Statistic: {chi2_stat_location}")
 print(f"p-value: {p_value_location}")
-print(f"Degrees of Freedom: {dof_location}")
 print(f"Expected Frequencies Table: \n{expected_location}")
 print("\nNull Hypothesis (H0): There is no significant relationship between Price Range and Location.")
 print("Alternative Hypothesis (H1): There is a significant relationship between Price Range and Location.")
@@ -355,20 +422,41 @@ if p_value_location < alpha:
 else:
     print("\nFail to reject the null hypothesis: There is no significant relationship between Price Range and Location.")
 
-# Heatmap for the contingency table
-plt.figure(figsize=(10, 6))
-sns.heatmap(contingency_table_location, annot=True, cmap='Blues', fmt='d', linewidths=0.5)
-plt.title('Heatmap of Price Range vs Location')
-plt.xlabel('Location')
-plt.ylabel('Price Range')
+# Set up the subplots
+fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+
+# Contingency Table Heatmap Plot
+sns.heatmap(contingency_table_location, annot=True, cmap='Blues', fmt='d', linewidths=0.5, ax=axes[0])
+axes[0].set_title('Heatmap of Price Range vs Location')
+axes[0].set_xlabel('Location')
+axes[0].set_ylabel('Price Range')
+
+# Chi-Square Distribution Plot
+x = np.linspace(0, 15, 500)
+axes[1].plot(x, chi2.pdf(x, dof_location), label=f'Chi-Square Distribution (df={dof_location})', color='blue')
+
+# Shade the area representing the p-value
+x_fill = np.linspace(chi2_stat_location, 15, 500)  # Area to the right of the chi2_stat
+axes[1].fill_between(x_fill, chi2.pdf(x_fill, dof_location), color='red', alpha=0.5, label=f'P-value area: {p_value_location:.3f}')
+
+# Add labels and title for the Chi-Square plot
+axes[1].set_title(f'Chi-Square Distribution with p-value Highlighted (p = {p_value_location:.3f})')
+axes[1].set_xlabel('Chi-Square Statistic')
+axes[1].set_ylabel('Probability Density')
+axes[1].axvline(x=chi2_stat_location, color='black', linestyle='--', label=f'Chi-Square Statistic: {chi2_stat_location:.2f}')
+axes[1].legend()
+plt.tight_layout()
 plt.show()
 
-#6.Chi-Square Test of Independence for Price Range vs Order Type
+# 6.Chi-Square Test of Independence for Price Range vs Order Type
 
+# Create the contingency table for Price Range vs Order Type
 contingency_table_order_type = pd.crosstab(df['Price_Range'], df['Order_Type'])
 
-# Perform Chi-Square test
+# Perform the Chi-Square test
 chi2_stat_order_type, p_value_order_type, dof_order_type, expected_order_type = chi2_contingency(contingency_table_order_type)
+
+# Print Chi-Square Test Results
 print("\nChi-Square Test for Price Range vs Order Type:")
 print(f"Chi-Square Statistic: {chi2_stat_order_type}")
 print(f"p-value: {p_value_order_type}")
@@ -378,28 +466,55 @@ print("\nNull Hypothesis (H0): There is no significant relationship between Pric
 print("Alternative Hypothesis (H1): There is a significant relationship between Price Range and Order Type.")
 
 # Interpretation of p-value
+alpha = 0.05
 if p_value_order_type < alpha:
     print("\nReject the null hypothesis: There is a significant relationship between Price Range and Order Type.")
 else:
     print("\nFail to reject the null hypothesis: There is no significant relationship between Price Range and Order Type.")
 
-# Heatmap for the contingency table
-plt.figure(figsize=(10, 6))
-sns.heatmap(contingency_table_order_type, annot=True, cmap='Blues', fmt='d', linewidths=0.5)
-plt.title('Heatmap of Price Range vs Order Type')
-plt.xlabel('Order Type')
-plt.ylabel('Price Range')
+# Set up the subplots (1 row, 2 columns)
+fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+
+# Contingency Table Heatmap Plot
+sns.heatmap(contingency_table_order_type, annot=True, cmap='Blues', fmt='d', linewidths=0.5, ax=axes[0])
+axes[0].set_title('Heatmap of Price Range vs Order Type')
+axes[0].set_xlabel('Order Type')
+axes[0].set_ylabel('Price Range')
+
+# Chi-Square Distribution Plot
+x = np.linspace(0, 15, 500)
+axes[1].plot(x, chi2.pdf(x, dof_order_type), label=f'Chi-Square Distribution (df={dof_order_type})', color='blue')
+x_fill = np.linspace(chi2_stat_order_type, 15, 500)
+axes[1].fill_between(x_fill, chi2.pdf(x_fill, dof_order_type), color='red', alpha=0.5, label=f'P-value area: {p_value_order_type:.3f}')
+
+# Add labels and title for the Chi-Square plot
+axes[1].set_title(f'Chi-Square Distribution with p-value Highlighted (p = {p_value_order_type:.3f})')
+axes[1].set_xlabel('Chi-Square Statistic')
+axes[1].set_ylabel('Probability Density')
+axes[1].axvline(x=chi2_stat_order_type, color='black', linestyle='--', label=f'Chi-Square Statistic: {chi2_stat_order_type:.2f}')
+axes[1].legend(loc='upper left')
+plt.tight_layout()
 plt.show()
 
-# 7.ANOVA to Compare Delivery Time Across Locations
+# 7.Two-Way ANOVA to Compare Delivery Time differs by Location and Order Type
 
-# Two-Way ANOVA formula to check if Delivery Time differs by Location and Order Type
+# Two-Way ANOVA formula
 formula = 'Delivery_Time__min_ ~ C(Location) + C(Order_Type) + C(Location):C(Order_Type)'
 model = ols(formula, data=df).fit()
 anova_table = sm.stats.anova_lm(model, typ=2)
 
 # Print the ANOVA table
 print(anova_table)
+
+# Hypothesis Statements
+print("\nNull Hypothesis (H₀) for Location: There is no significant effect of Location on Delivery Time.")
+print("Alternative Hypothesis (H₁) for Location: There is a significant effect of Location on Delivery Time.")
+
+print("\nNull Hypothesis (H₀) for Order Type: There is no significant effect of Order Type on Delivery Time.")
+print("Alternative Hypothesis (H₁) for Order Type: There is a significant effect of Order Type on Delivery Time.")
+
+print("\nNull Hypothesis (H₀) for the Interaction effect: There is no significant interaction effect between Location and Order Type on Delivery Time.")
+print("Alternative Hypothesis (H₁) for the Interaction effect: There is a significant interaction effect between Location and Order Type on Delivery Time.")
 
 # Interpretation of p-values
 alpha = 0.05
@@ -468,38 +583,60 @@ sentiment_feedback_crosstab = pd.crosstab(df['Sentiment'], df['Customer_Feedback
 # Display the cross-tabulation (contingency table)
 print(sentiment_feedback_crosstab)
 
-# Plot a heatmap to visualize the correlation between Sentiment and Customer Feedback Type
-plt.figure(figsize=(8, 6))
-sns.heatmap(sentiment_feedback_crosstab, annot=True, fmt='d', cmap='Blues', cbar=False)
+# Plot a heatmap to visualize the association between Sentiment and Customer Feedback Type
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Create a figure with 1 row and 2 columns
+sns.heatmap(sentiment_feedback_crosstab, annot=True, fmt='d', cmap='Blues', cbar=False, ax=axes[0])
 
-# Customize the plot with labels and title
-plt.title('Correlation between Sentiment and Customer Feedback Type', fontsize=14)
-plt.xlabel('Customer Feedback Type', fontsize=12)
-plt.ylabel('Sentiment', fontsize=12)
-plt.tight_layout()
-plt.show()
+# Customize the plot with labels and title for heatmap
+axes[0].set_title('Association between Sentiment and Customer Feedback Type', fontsize=14)
+axes[0].set_xlabel('Customer Feedback Type', fontsize=12)
+axes[0].set_ylabel('Sentiment', fontsize=12)
 
 # Perform Chi-Square Test of Independence
-chi2, p, dof, expected = chi2_contingency(sentiment_feedback_crosstab)
+chi2_stat, p, dof, expected = chi2_contingency(sentiment_feedback_crosstab)
 
-# Print the result of the Chi-Square Test
+# Hypothesis Framing
+print("\nHypothesis Test:")
+print("Null Hypothesis (H₀): There is no significant association between Sentiment analysis and Customer Feedback Type.")
+print("Alternative Hypothesis (H₁): There is a significant association between Sentiment analysis and Customer Feedback Type.")
 print("\nChi-Square Test Result:")
-print("Chi2 Statistic:", chi2)
+print("Chi2 Statistic:", chi2_stat)
 print("p-value:", p)
 print("Degrees of Freedom:", dof)
 print("Expected Frequencies Table:")
 print(expected)
 
-# If p-value is less than 0.05, there is a statistically significant correlation
+# If p-value is less than 0.05, there is a statistically significant association
 if p < 0.05:
-    print("\nThere is a significant correlation between Sentiment and Customer Feedback Type.")
+    print("\nReject the null hypothesis: There is a significant association between Sentiment analysis and Customer Feedback Type.")
 else:
-    print("\nThere is no significant correlation between Sentiment and Customer Feedback Type.")
+    print("\nFail to reject the null hypothesis: There is no significant association between Sentiment analysis and Customer Feedback Type.")
 
-#2.Cosine Similarity between Sentiment and Customer Feedback Type:
+# Subplot 2: Chi-Square Distribution Plot
+# Use chi-square distribution for plotting
+x = np.linspace(0, 15, 500)
+
+# Plot the chi-square distribution
+axes[1].plot(x, chi2.pdf(x, dof), label=f'Chi-Square Distribution (df={dof})', color='blue')
+
+# Shade the area representing the p-value (right tail)
+x_fill = np.linspace(chi2.ppf(1-p, dof), 15, 500)  # Area to the right of the chi2_stat
+axes[1].fill_between(x_fill, chi2.pdf(x_fill, dof), color='red', alpha=0.5, label=f'P-value area: {p:.3f}')
+
+# Add labels and title for chi-square plot
+axes[1].set_title(f'Chi-Square Distribution (p = {p:.3f})')
+axes[1].set_xlabel('Chi-Square Statistic')
+axes[1].set_ylabel('Probability Density')
+axes[1].axvline(x=chi2.ppf(1-p, dof), color='black', linestyle='--', label=f'Chi-Square Statistic: {chi2.ppf(1-p, dof):.2f}')
+axes[1].legend()
+plt.tight_layout()
+plt.show()
+
+#2.Cosine Similarity between Sentiment analysis of review text and Customer Feedback Type:
 
 # Convert the 'Sentiment' and 'Customer_Feedback_Type' columns to a format that cosine similarity can use
-# We can use CountVectorizer or TF-IDF Vectorizer to convert the text into numerical data
+df['Sentiment'] = df['Sentiment'].astype(str)
+df['Customer_Feedback_Type'] = df['Customer_Feedback_Type'].astype(str)
 vectorizer = CountVectorizer()
 
 # Transform 'Sentiment' and 'Customer_Feedback_Type' columns into vectors
@@ -521,12 +658,7 @@ if mean_cosine_sim < 0.5:
 else:
     print("\nHigher Similarity: The mean similarity is higher than expected, suggesting that sentiment and customer feedback might be more aligned.")
 
-print("\nCosine Matrix: The individual similarity values show varying degrees of similarity. Some might be close to 1, indicating that for some rows, sentiment and feedback are similar. However, the matrix shows a lot of disparity, suggesting that the two columns do not always align.")
-
-
-
 #3.To analyze Review text sentiment distribution by Location and Order Type
-
 # Group by Location, Order Type, and Sentiment, and count the occurrences
 sentiment_location_order = df.groupby(['Location', 'Order_Type', 'Sentiment']).size().unstack(fill_value=0)
 
@@ -537,17 +669,15 @@ sentiment_location_order = sentiment_location_order.reset_index()
 sns.set(style="whitegrid")
 
 # Create a stacked bar plot to show sentiment distribution across Location and Order Type
-# Adjust the bar width for better visibility
 ax = sentiment_location_order.set_index(['Location', 'Order_Type']).plot(kind='bar', stacked=False, figsize=(14, 8), width=0.8)
 
 # Customize the plot
-plt.title('Review text Sentiment Distribution by Location and Order Type', fontsize=16)
+plt.title('Review Text Sentiment Distribution by Location and Order Type', fontsize=16)
 plt.xlabel('Location and Order Type', fontsize=12)
 plt.ylabel('Number of Reviews', fontsize=12)
 plt.xticks(rotation=45, ha='right', fontsize=10)  # Rotate x-axis labels for readability
-plt.xticks(rotation=45, ha='right')  # Ensure proper rotation
 plt.tight_layout()  # Adjust layout for better fit
-plt.subplots_adjust(bottom=0.15)  # Adds space below x-axis for labels
+plt.subplots_adjust(bottom=0.3)  # Adds more space below x-axis for labels
 plt.legend(title='Sentiment', loc='upper right')
 plt.show()
 
@@ -581,13 +711,20 @@ for Agent_Name, reviews in Agent_Name_groups.items():
     plt.title(f"Word Cloud for {Agent_Name}", fontsize=16)
     plt.show()
 
-#5. Agent wise key word extaraction
+#5. Agent wise key word extraction  by TfidfVectorizer
 
 # Function to extract top keywords and their frequencies by group (Agent)
 def extract_keywords_by_group(df, group_col, text_col):
     group_keywords = {}
     for group in df[group_col].unique():
+        # Get reviews for each agent
         group_data = df[df[group_col] == group]
+
+        if group_data.empty:  # Check if there are no reviews for the agent
+            group_keywords[group] = {}
+            continue
+
+        # Use TfidfVectorizer to extract keywords for the agent
         vectorizer = TfidfVectorizer(stop_words='english')
         tfidf_matrix = vectorizer.fit_transform(group_data[text_col])
         feature_names = vectorizer.get_feature_names_out()
@@ -596,24 +733,44 @@ def extract_keywords_by_group(df, group_col, text_col):
         group_keywords[group] = word_freq
     return group_keywords
 
+
 # Extract agent-wise keyword frequencies
 agent_keywords = extract_keywords_by_group(df, 'Agent_Name', 'Review_Text')
 
 # Output the results agent-wise, printing on separate lines
 for agent, word_freq in agent_keywords.items():
     print(f"Agent: {agent}")
+
+    # Sort keywords by frequency (descending)
     sorted_word_freq = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
-    top_words, top_freq = zip(*sorted_word_freq[:10])
 
-    # Printing keywords
-    print(f"Top 10 Keywords: {', '.join(top_words)}")
-    print("-" * 30)  # Separator for readability
+    # Ensure that there are top words and frequencies to extract
+    if sorted_word_freq:
+        top_words, top_freq = zip(*sorted_word_freq[:10])  # Extract top 10 keywords
 
-    # Plotting bar graph for each agent
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x=list(top_words), y=top_freq, palette='viridis')
-    plt.title(f"Top 10 Word Frequencies for {agent}")
-    plt.xlabel('Words')
-    plt.ylabel('Frequency')
-    plt.xticks(rotation=45)
-    plt.show()
+        # Debugging: Check the structure of top_words and top_freq
+        print("Top Words:", top_words)
+        print("Top Frequencies:", top_freq)
+
+        # Ensure both top_words and top_freq are valid lists
+        if isinstance(top_words, tuple) and isinstance(top_freq, tuple):
+            top_words = list(top_words)
+            top_freq = list(top_freq)
+
+        # Printing the top keywords
+        print(f"Top 10 Keywords: {', '.join(top_words)}")
+        print("-" * 30)  # Separator for readability
+
+        # Plotting bar graph for each agent
+        if top_words and top_freq:  # Only plot if there are words and frequencies
+            plt.figure(figsize=(10, 6))
+            sns.barplot(x=top_words, y=top_freq, palette='viridis')
+            plt.title(f"Top 10 Word Frequencies for {agent}")
+            plt.xlabel('Words')
+            plt.ylabel('Frequency')
+            plt.xticks(rotation=45)
+            plt.show()
+        else:
+            print(f"No valid words to display for agent {agent}.")
+    else:
+        print(f"No keywords found for agent {agent}.")
