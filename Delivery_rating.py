@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 #This library is used for visualization of data.
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 #This library os used for statistical graphics. It builds on top of matplotlib and integrates closely with pandas DS
 import seaborn as sns
 #This library os used for probabilistic distributions and statistical operations.
@@ -685,6 +686,7 @@ plt.show()
 #4.Creating Word cloud for Agent Names
 
 stop_words = stopwords.words('english')
+
 # Text Preprocessing Function
 def preprocess_text(text):
     text = text.lower()
@@ -692,24 +694,27 @@ def preprocess_text(text):
     text = ' '.join([word for word in text.split() if word not in stop_words])  # Remove stopwords
     return text
 
-
 # Apply text preprocessing to the 'Review_Text' column
 df['cleaned_reviews'] = df['Review_Text'].apply(preprocess_text)
-
-# Group reviews by Location
 Agent_Name_groups = df.groupby('Agent_Name')['cleaned_reviews'].apply(' '.join)
+fig, axes = plt.subplots(2, 2, figsize=(10,6))
+axes = axes.flatten()
 
-# Create Word Cloud for each Location
-for Agent_Name, reviews in Agent_Name_groups.items():
+# Iterate over the groups and plot each word cloud in a subplot
+for idx, (Agent_Name, reviews) in enumerate(Agent_Name_groups.items()):
     # Generate a Word Cloud for the reviews of each Agent_Name
     wordcloud = WordCloud(width=800, height=400, background_color='white').generate(reviews)
 
     # Plot the Word Cloud
-    plt.figure(figsize=(10, 6))
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis('off')  # Hide axes
-    plt.title(f"Word Cloud for {Agent_Name}", fontsize=16)
-    plt.show()
+    ax = axes[idx]  # Get the current subplot axis
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.axis('off')  # Hide axes
+    ax.set_title(f"Word Cloud for {Agent_Name}", fontsize=16)
+
+
+plt.tight_layout()
+plt.subplots_adjust(top=0.85, bottom=0.1, hspace=0.3)  # top, bottom, and horizontal space
+plt.show()
 
 #5. Agent wise key word extraction  by TfidfVectorizer
 
@@ -733,12 +738,17 @@ def extract_keywords_by_group(df, group_col, text_col):
         group_keywords[group] = word_freq
     return group_keywords
 
-
 # Extract agent-wise keyword frequencies
 agent_keywords = extract_keywords_by_group(df, 'Agent_Name', 'Review_Text')
+num_agents = len(agent_keywords)
+fig = plt.figure(figsize=(15, 12))
 
-# Output the results agent-wise, printing on separate lines
-for agent, word_freq in agent_keywords.items():
+# Prepare a list of unique colors for each agent using a colormap
+colormap = cm.get_cmap('tab20', num_agents)  # Get a colormap (up to 20 unique colors)
+legend_labels = []
+
+# Loop through each agent and plot its top keywords in the respective subplot
+for idx, (agent, word_freq) in enumerate(agent_keywords.items()):
     print(f"Agent: {agent}")
 
     # Sort keywords by frequency (descending)
@@ -748,29 +758,28 @@ for agent, word_freq in agent_keywords.items():
     if sorted_word_freq:
         top_words, top_freq = zip(*sorted_word_freq[:10])  # Extract top 10 keywords
 
-        # Debugging: Check the structure of top_words and top_freq
-        print("Top Words:", top_words)
-        print("Top Frequencies:", top_freq)
-
         # Ensure both top_words and top_freq are valid lists
         if isinstance(top_words, tuple) and isinstance(top_freq, tuple):
             top_words = list(top_words)
             top_freq = list(top_freq)
 
-        # Printing the top keywords
-        print(f"Top 10 Keywords: {', '.join(top_words)}")
-        print("-" * 30)  # Separator for readability
-
-        # Plotting bar graph for each agent
-        if top_words and top_freq:  # Only plot if there are words and frequencies
-            plt.figure(figsize=(10, 6))
-            sns.barplot(x=top_words, y=top_freq, palette='viridis')
-            plt.title(f"Top 10 Word Frequencies for {agent}")
-            plt.xlabel('Words')
-            plt.ylabel('Frequency')
-            plt.xticks(rotation=45)
-            plt.show()
+        # Plotting bar graph for each agent on its respective subplot
+        if idx < 2:
+            ax = plt.subplot(2, 2, idx + 1)  # First row: 2 subplots
         else:
-            print(f"No valid words to display for agent {agent}.")
+            ax = plt.subplot(2, 2, idx + 1)  # Second row: 2 subplots
+
+        color = colormap(idx)  # Get a unique color for each agent
+        ax.bar(top_words, top_freq, color=color)  # Apply the unique color to the bars
+        ax.set_title(f"Top 10 Word Frequencies for {agent}")
+        ax.set_xlabel('Words')
+        ax.set_ylabel('Frequency')
+        ax.tick_params(axis='x', rotation=45)
+        legend_labels.append(agent)
+
     else:
         print(f"No keywords found for agent {agent}.")
+
+plt.tight_layout()
+plt.subplots_adjust(top=0.9, bottom=0.20, hspace=0.5)
+plt.show()
